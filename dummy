@@ -1,0 +1,102 @@
+import pandas as pd
+import numpy as np
+import calendar
+from pandas.tseries.holiday import USFederalHolidayCalendar
+
+df['timestamp'] = pd.to_datetime(df['timestamp'])
+df['date'] = df['timestamp'].dt.date
+df['day_of_week'] = df['timestamp'].dt.dayofweek  # 0=Mon, 6=Sun
+df['day'] = df['timestamp'].dt.day
+df['month'] = df['timestamp'].dt.month
+df['year'] = df['timestamp'].dt.year
+
+# Crée un DataFrame avec tous les jours disponibles
+calendar_df = df[['date']].drop_duplicates().sort_values('date').copy()
+calendar_df['is_weekend'] = calendar_df['date'].apply(lambda d: d.weekday() >= 5)
+calendar_df['is_business_day'] = ~calendar_df['is_weekend']
+
+
+def is_same_weekday_pattern(cluster_df):
+    return cluster_df['day_of_week'].nunique() == 1
+
+
+def get_weekday_occurrence_in_month(row):
+    weekday = row['day_of_week']
+    month_days = pd.date_range(start=f"{row['year']}-{row['month']:02d}-01", 
+                               end=f"{row['year']}-{row['month']:02d}-{calendar.monthrange(row['year'], row['month'])[1]}")
+    same_weekdays = [d for d in month_days if d.weekday() == weekday]
+    return sum(d.day <= row['day'] for d in same_weekdays)
+
+df['weekday_occurrence'] = df.apply(get_weekday_occurrence_in_month, axis=1)
+
+def is_same_nth_weekday_occurrence_pattern(cluster_df):
+    return cluster_df[['day_of_week', 'weekday_occurrence']].drop_duplicates().shape[0] == 1
+
+def is_every_calendar_day_pattern(cluster_df):
+    days = cluster_df['day'].sort_values().unique()
+    return np.all(np.diff(days) == 1)
+
+def is_almost_all_calendar_days(cluster_df):
+    days_in_month = cluster_df['timestamp'].dt.days_in_month.iloc[0]
+    return cluster_df['day'].nunique() >= days_in_month - 1
+def is_every_business_day_pattern(cluster_df):
+    business_days = pd.bdate_range(start=cluster_df['timestamp'].min().date(),
+                                    end=cluster_df['timestamp'].max().date())
+    cluster_dates = pd.to_datetime(cluster_df['date'].unique())
+    return set(business_days.date).issubset(set(cluster_dates))
+
+
+def get_business_day_rank(row):
+    month = row['month']
+    year = row['year']
+    all_days = pd.bdate_range(start=f'{year}-{month:02d}-01', 
+                              end=f'{year}-{month:02d}-{calendar.monthrange(year, month)[1]}')
+    date = pd.to_datetime(row['date'])
+    return np.where(all_days == date)[0][0] + 1 if date in all_days else np.nan
+
+df['bizday_rank'] = df.apply(get_business_day_rank, axis=1)
+
+def is_same_business_day_rank(cluster_df):
+    return cluster_df['bizday_rank'].nunique() == 1
+
+def is_last_business_day_of_month(date):
+    year, month = date.year, date.month
+    bdays = pd.bdate_range(f"{year}-{month:02d}-01", 
+                           f"{year}-{month:02d}-{calendar.monthrange(year, month)[1]}")
+    return date == bdays[-1]
+
+df['is_last_bizday'] = df['timestamp'].dt.date.apply(is_last_business_day_of_month)
+
+def is_last_bizday_pattern(cluster_df):
+    return cluster_df['is_last_bizday'].all()
+
+def is_last_weekday_occurrence(date):
+    weekday = date.weekday()
+    last_day = calendar.monthrange(date.year, date.month)[1]
+    last_date = pd.Timestamp(f"{date.year}-{date.month}-{last_day}")
+    while last_date.weekday() != weekday:
+        last_date -= pd.Timedelta(days=1)
+    return date == last_date
+
+df['is_last_weekday_of_month'] = df['timestamp'].dt.date.apply(is_last_weekday_occurrence)
+
+def is_last_weekday_occurrence_pattern(cluster_df):
+    return cluster_df['is_last_weekday_of_month'].all()
+
+results = []
+
+for cluster_id, group in df.groupby('cluster'):
+    result = {
+        'cluster': cluster_id,
+        'same_weekday': is_same_weekday_pattern(group),
+        'nth_weekday_occurrence': is_same_nth_weekday_occurrence_pattern(group),
+        'every_calendar_day': is_almost_all_calendar_days(group),
+        'every_business_day': is_every_business_day_pattern(group),
+        'nth_business_day': is_same_business_day_rank(group),
+        'last_business_day': is_last_bizday_pattern(group),
+        'last_weekday_in_month': is_last_weekday_occurrence_pattern(group)
+    }
+    results.append(result)
+
+pattern_df = pd.DataFrame(results)
+print(pattern_df)
