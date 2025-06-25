@@ -121,24 +121,45 @@ pattern_df = pd.DataFrame(results)
 print(pattern_df)
 
 
+# -------------- EXTRA ANALYSIS FOR CLUSTER 12 -----------------
 cluster_id = 12
-tolerance = 0.8
+cluster_df = df[df['cluster'] == cluster_id].copy()
 
-# Filter the cluster
-cluster_12 = df[df['cluster'] == cluster_id]
-
-# Most common weekday
-dominant_weekday = cluster_12['day_of_week'].mode()[0]
-
-# Human-readable weekday name
+# Step 1: Identify dominant weekday
+dominant_weekday = cluster_df['day_of_week'].mode()[0]  # 0 = Monday, ..., 6 = Sunday
 weekday_name = calendar.day_name[dominant_weekday]
+print(f"\nMost common weekday in cluster {cluster_id}: {weekday_name} (#{dominant_weekday})")
 
-# Count how many files arrived on that weekday
-count_on_dominant_day = (cluster_12['day_of_week'] == dominant_weekday).sum()
-total_files = len(cluster_12)
-percentage = count_on_dominant_day / total_files
+# Step 2: Count how many files on that day
+count_on_dominant_day = (cluster_df['day_of_week'] == dominant_weekday).sum()
+total = len(cluster_df)
+ratio = count_on_dominant_day / total
+print(f"{count_on_dominant_day} out of {total} files ({ratio:.2%}) arrive on {weekday_name}")
 
-print(f"Cluster {cluster_id}:")
-print(f"  📅 Dominant weekday: {weekday_name} (code {dominant_weekday})")
-print(f"  ✅ {count_on_dominant_day} out of {total_files} files ({percentage:.1%}) arrived on that weekday.")
-print(f"  ✅ Tolerance threshold = {tolerance}, met = {percentage >= tolerance}")
+# Step 3: Weekly recurrence check
+cluster_df['week'] = cluster_df['timestamp'].dt.isocalendar().week
+cluster_df['year'] = cluster_df['timestamp'].dt.isocalendar().year
+
+weekday_df = cluster_df[cluster_df['day_of_week'] == dominant_weekday]
+weeks_with_arrivals = set(zip(weekday_df['year'], weekday_df['week']))
+all_weeks = set(zip(cluster_df['year'], cluster_df['week']))
+coverage_ratio = len(weeks_with_arrivals) / len(all_weeks)
+
+print(f"Files arrived on {weekday_name} in {len(weeks_with_arrivals)} of {len(all_weeks)} weeks ({coverage_ratio:.2%})")
+if coverage_ratio >= 0.8:
+    print(f"✅ Pattern: Weekly arrival on {weekday_name} with tolerance 0.8")
+else:
+    print(f"❌ Not enough weekly consistency on {weekday_name} (need ≥ 80%)")
+
+# Optional: Plot arrivals per week
+weekday_df['year_week'] = weekday_df['timestamp'].dt.strftime('%Y-W%U')
+weekday_counts = weekday_df['year_week'].value_counts().sort_index()
+
+plt.figure(figsize=(12, 4))
+weekday_counts.plot(kind='bar')
+plt.title(f'Arrivals on {weekday_name} per Week - Cluster {cluster_id}')
+plt.xlabel('Year-Week')
+plt.ylabel('Number of Files')
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
