@@ -239,3 +239,49 @@ plt.ylabel("Number of Files")
 plt.xlabel("Match Type")
 plt.tight_layout()
 plt.show()
+
+
+cluster_id = 12
+cluster_df = df[df['cluster'] == cluster_id].copy()
+
+# Step 1: Analyze all weekdays in the cluster
+weekday_counts = cluster_df['day_of_week'].value_counts().sort_index()
+print(f"\nWeekday counts in cluster {cluster_id}:")
+for day_idx, count in weekday_counts.items():
+    print(f"{calendar.day_name[day_idx]}: {count} files")
+
+# Step 2: Identify top combinations (e.g., Tuesday and Wednesday)
+dominant_days = weekday_counts[weekday_counts >= weekday_counts.max() * 0.8].index.tolist()
+dominant_names = [calendar.day_name[d] for d in dominant_days]
+print(f"\nDominant weekdays (>= 80% of max): {dominant_names}")
+
+# Step 3: Check weekly coverage for these days
+cluster_df['week'] = cluster_df['timestamp'].dt.isocalendar().week
+cluster_df['year'] = cluster_df['timestamp'].dt.isocalendar().year
+cluster_df['year_week'] = cluster_df['timestamp'].dt.strftime('%Y-W%U')
+
+def coverage_for_day(day):
+    day_df = cluster_df[cluster_df['day_of_week'] == day]
+    weeks_with_arrivals = set(zip(day_df['year'], day_df['week']))
+    all_weeks = set(zip(cluster_df['year'], cluster_df['week']))
+    return day, len(weeks_with_arrivals), len(all_weeks), len(weeks_with_arrivals) / len(all_weeks)
+
+print(f"\nWeekly coverage:")
+for d in dominant_days:
+    day, hits, total_weeks, ratio = coverage_for_day(d)
+    print(f"{calendar.day_name[day]}: {hits}/{total_weeks} weeks ({ratio:.2%})")
+
+# Step 4: Plot weekly file count for each dominant day
+plt.figure(figsize=(12, 6))
+for d in dominant_days:
+    day_df = cluster_df[cluster_df['day_of_week'] == d].copy()
+    weekly_counts = day_df['year_week'].value_counts().sort_index()
+    plt.plot(weekly_counts.index, weekly_counts.values, label=calendar.day_name[d])
+
+plt.title(f"Weekly Arrivals by Dominant Weekdays - Cluster {cluster_id}")
+plt.xlabel("Year-Week")
+plt.ylabel("Number of Files")
+plt.xticks(rotation=45)
+plt.legend()
+plt.tight_layout()
+plt.show()
