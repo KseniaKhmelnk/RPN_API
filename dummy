@@ -119,3 +119,26 @@ for cluster_id, group in df.groupby('cluster'):
 
 pattern_df = pd.DataFrame(results)
 print(pattern_df)
+
+
+cluster_id = 12
+tolerance = 0.8
+
+# Filter the cluster
+cluster_12 = df[df['cluster'] == cluster_id]
+
+# Most common weekday
+dominant_weekday = cluster_12['day_of_week'].mode()[0]
+
+# Human-readable weekday name
+weekday_name = calendar.day_name[dominant_weekday]
+
+# Count how many files arrived on that weekday
+count_on_dominant_day = (cluster_12['day_of_week'] == dominant_weekday).sum()
+total_files = len(cluster_12)
+percentage = count_on_dominant_day / total_files
+
+print(f"Cluster {cluster_id}:")
+print(f"  📅 Dominant weekday: {weekday_name} (code {dominant_weekday})")
+print(f"  ✅ {count_on_dominant_day} out of {total_files} files ({percentage:.1%}) arrived on that weekday.")
+print(f"  ✅ Tolerance threshold = {tolerance}, met = {percentage >= tolerance}")
