@@ -163,3 +163,79 @@ plt.ylabel('Number of Files')
 plt.xticks(rotation=45)
 plt.tight_layout()
 plt.show()
+
+
+# ------------------------ CONFIG ------------------------
+CLUSTER_ID = 5
+TOLERANCE = 0.8  # 80% consistency required
+
+# ------------------------ INPUT -------------------------
+# Ensure your DataFrame is loaded and parsed properly:
+# df = pd.read_csv("your_file.csv")
+# df['timestamp'] = pd.to_datetime(df['timestamp'])
+
+# For demo purposes, you must already have:
+# df['cluster'] and df['timestamp'] columns
+
+# ------------------------ FILTER CLUSTER -------------------------
+df['timestamp'] = pd.to_datetime(df['timestamp'])
+df['year'] = df['timestamp'].dt.year
+df['month'] = df['timestamp'].dt.month
+df['day'] = df['timestamp'].dt.day
+df['day_of_week'] = df['timestamp'].dt.dayofweek  # Monday=0, Sunday=6
+df['date'] = df['timestamp'].dt.date
+
+cluster_df = df[df['cluster'] == CLUSTER_ID].copy()
+
+# ------------------------ COMPUTE N-th OCCURRENCE -------------------------
+def get_weekday_occurrence(row):
+    year = row['year']
+    month = row['month']
+    weekday = row['day_of_week']
+    days = pd.date_range(f"{year}-{month:02d}-01", f"{year}-{month:02d}-{calendar.monthrange(year, month)[1]}")
+    same_weekdays = [d.day for d in days if d.weekday() == weekday]
+    return same_weekdays.index(row['day']) + 1 if row['day'] in same_weekdays else np.nan
+
+cluster_df['weekday_occurrence'] = cluster_df.apply(get_weekday_occurrence, axis=1)
+
+# ------------------------ FIND DOMINANT PATTERN -------------------------
+# Most frequent (weekday, occurrence) pair
+dominant_combo = (
+    cluster_df.groupby(['day_of_week', 'weekday_occurrence'])
+    .size()
+    .idxmax()
+)
+dominant_weekday, dominant_occurrence = dominant_combo
+weekday_name = calendar.day_name[dominant_weekday]
+
+print(f"Most common N-th weekday pattern in Cluster {CLUSTER_ID}:")
+print(f"🗓️  {dominant_occurrence}-th {weekday_name} of each month")
+
+# ------------------------ TOLERANCE CHECK -------------------------
+# Check how many rows match this dominant pattern
+mask = (
+    (cluster_df['day_of_week'] == dominant_weekday) &
+    (cluster_df['weekday_occurrence'] == dominant_occurrence)
+)
+match_count = mask.sum()
+total_count = len(cluster_df)
+match_ratio = match_count / total_count
+
+print(f"\n✅ {match_count} of {total_count} files ({match_ratio:.2%}) match this pattern")
+
+if match_ratio >= TOLERANCE:
+    print(f"✔️ Pattern detected with tolerance ≥ {TOLERANCE:.0%}")
+else:
+    print(f"❌ Pattern does not meet tolerance threshold of {TOLERANCE:.0%}")
+
+# ------------------------ OPTIONAL VISUALIZATION -------------------------
+plot_df = cluster_df.copy()
+plot_df['label'] = np.where(mask, f"{dominant_occurrence}-th {weekday_name}", "Other")
+
+plt.figure(figsize=(10, 4))
+plot_df['label'].value_counts().plot(kind='bar', color=['green', 'red'])
+plt.title(f"Cluster {CLUSTER_ID} – Match to N-th {weekday_name} Pattern")
+plt.ylabel("Number of Files")
+plt.xlabel("Match Type")
+plt.tight_layout()
+plt.show()
