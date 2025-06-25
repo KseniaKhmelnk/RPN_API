@@ -285,3 +285,26 @@ plt.xticks(rotation=45)
 plt.legend()
 plt.tight_layout()
 plt.show()
+
+# ------------------ ANALYZE EACH FILENAME_CLEANED ------------------
+filename_results = []
+
+for fname, group in df.groupby('filename_cleaned'):
+    result = {
+        'filename_cleaned': fname,
+        'file_count': len(group),
+        'same_weekday': pattern_with_tolerance(same_weekday_mask, tolerance_threshold)(group),
+        'nth_weekday_occurrence': pattern_with_tolerance(nth_weekday_occurrence_mask, tolerance_threshold)(group),
+        'every_calendar_day': pattern_with_tolerance(calendar_day_mask, tolerance_threshold)(group),
+        'every_business_day': pattern_with_tolerance(business_day_mask, tolerance_threshold)(group),
+        'nth_business_day': pattern_with_tolerance(nth_business_day_mask, tolerance_threshold)(group),
+        'last_business_day': pattern_with_tolerance(last_bizday_mask, tolerance_threshold)(group),
+        'last_weekday_in_month': pattern_with_tolerance(last_weekday_of_month_mask, tolerance_threshold)(group)
+    }
+    filename_results.append(result)
+
+filename_pattern_df = pd.DataFrame(filename_results)
+
+# Display patterns
+print("\n========== Reception Patterns by filename_cleaned ==========")
+print(filename_pattern_df.sort_values("file_count", ascending=False))
