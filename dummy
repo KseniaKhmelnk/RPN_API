@@ -347,3 +347,26 @@ plt.legend()
 plt.tight_layout()
 plt.show()
 
+# For each cluster:
+for cluster_id, cluster_df in df.groupby('cluster'):
+    dominant_weekday = cluster_df['day_of_week'].mode()[0]
+    weekday_name = calendar.day_name[dominant_weekday]
+    
+    cluster_df = cluster_df.copy()
+    cluster_df['week'] = cluster_df['timestamp'].dt.isocalendar().week
+    cluster_df['year'] = cluster_df['timestamp'].dt.isocalendar().year
+
+    weekday_df = cluster_df[cluster_df['day_of_week'] == dominant_weekday]
+    all_weeks = set(zip(cluster_df['year'], cluster_df['week']))
+
+    file_week_counts = (
+        weekday_df.groupby('file_name_cleaned')
+        .apply(lambda g: len(set(zip(g['year'], g['week']))))
+        .reset_index(name='weeks_present')
+    )
+    file_week_counts['recurrence_ratio'] = file_week_counts['weeks_present'] / len(all_weeks)
+    
+    recurrent_files = file_week_counts[file_week_counts['recurrence_ratio'] >= 0.8]
+
+    print(f"\n📂 Cluster {cluster_id} - {weekday_name}: {len(recurrent_files)} recurrent files found")
+    print(recurrent_files)
