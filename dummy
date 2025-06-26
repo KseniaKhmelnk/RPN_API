@@ -308,3 +308,42 @@ filename_pattern_df = pd.DataFrame(filename_results)
 # Display patterns
 print("\n========== Reception Patterns by filename_cleaned ==========")
 print(filename_pattern_df.sort_values("file_count", ascending=False))
+
+
+
+# Step 5: Analyze file_name_cleaned patterns on dominant weekday
+print(f"\n🗂️ File recurrence on {weekday_name} in cluster {cluster_id}:")
+
+# Group by file and count in how many unique weeks it arrived on the dominant weekday
+file_week_counts = (
+    weekday_df.groupby('file_name_cleaned')
+    .apply(lambda g: len(set(zip(g['year'], g['week']))))
+    .reset_index(name='weeks_present')
+)
+
+# Total number of weeks in the cluster
+total_weeks_in_cluster = len(all_weeks)
+
+# Add recurrence ratio column
+file_week_counts['recurrence_ratio'] = file_week_counts['weeks_present'] / total_weeks_in_cluster
+
+# Show only files with recurrence >= 0.8 (optional)
+recurrent_files = file_week_counts[file_week_counts['recurrence_ratio'] >= 0.8]
+
+print(file_week_counts.sort_values(by='recurrence_ratio', ascending=False))
+
+print(f"\n✅ Files with weekly recurrence on {weekday_name} (≥ 80% of weeks):")
+print(recurrent_files)
+
+# Optional bar plot of file recurrence
+plt.figure(figsize=(12, 4))
+plt.bar(file_week_counts['file_name_cleaned'], file_week_counts['recurrence_ratio'])
+plt.axhline(0.8, color='red', linestyle='--', label='80% threshold')
+plt.title(f'Weekly Recurrence of Files on {weekday_name} - Cluster {cluster_id}')
+plt.ylabel('Recurrence Ratio')
+plt.xlabel('File Name')
+plt.xticks(rotation=90)
+plt.legend()
+plt.tight_layout()
+plt.show()
+
