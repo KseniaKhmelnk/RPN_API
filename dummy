@@ -370,3 +370,57 @@ for cluster_id, cluster_df in df.groupby('cluster'):
 
     print(f"\n📂 Cluster {cluster_id} - {weekday_name}: {len(recurrent_files)} recurrent files found")
     print(recurrent_files)
+---------------------------------
+
+
+import pandas as pd
+import numpy as np
+import calendar
+from pandas.tseries.offsets import BDay
+
+# Ensure timestamp is datetime
+df['upload_timestamp'] = pd.to_datetime(df['upload_timestamp'])
+
+# Extract date features
+df['day_of_week'] = df['upload_timestamp'].dt.dayofweek  # Monday=0, Sunday=6
+df['day_of_month'] = df['upload_timestamp'].dt.day
+df['month'] = df['upload_timestamp'].dt.month
+df['year'] = df['upload_timestamp'].dt.year
+df['is_bday'] = df['upload_timestamp'].dt.dayofweek < 5
+
+# N-th weekday in month
+def weekday_occurrence_in_month(date):
+    first = date.replace(day=1)
+    weekday = date.weekday()
+    count = 0
+    for d in range(1, date.day + 1):
+        if calendar.weekday(date.year, date.month, d) == weekday:
+            count += 1
+    return count
+
+df['weekday_occurrence'] = df['upload_timestamp'].apply(weekday_occurrence_in_month)
+
+# Business day index in the month
+def bday_index(date):
+    month_start = date.replace(day=1)
+    bdays = pd.date_range(month_start, date, freq=BDay())
+    return len(bdays)
+
+df['bday_index'] = df['upload_timestamp'].apply(bday_index)
+
+# Last business day of month
+def is_last_bday(date):
+    next_month = (date + pd.offsets.MonthEnd(1)).replace(day=1)
+    last_bday = pd.date_range(date.replace(day=1), next_month - pd.Timedelta(days=1), freq=BDay())[-1]
+    return date.date() == last_bday.date()
+
+df['is_last_bday'] = df['upload_timestamp'].apply(is_last_bday)
+
+# Last weekday occurrence of the month
+def is_last_weekday_occurrence(date):
+    last_day = calendar.monthrange(date.year, date.month)[1]
+    last_weekday = max(d for d in range(1, last_day + 1) 
+                       if calendar.weekday(date.year, date.month, d) == date.weekday())
+    return date.day == last_weekday
+
+df['is_last_weekday_occurrence'] = df['upload_timestamp'].apply(is_last_weekday_occurrence)
