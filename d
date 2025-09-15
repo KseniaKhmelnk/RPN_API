@@ -11,13 +11,13 @@ Make sure the output is clean, with column headers and properly separated rows, 
     "october": 10, "november": 11, "december": 12,
 }
 
-# Regex for "day month year"
-pattern = r"\b(\d{1,2})\s+([a-zA-Zéû]+)\s+(\d{4})\b"
+# Regex for "day month year [hh:mm]"
+pattern = r"\b(\d{1,2})\s+([a-zA-Zéû]+)\s+(\d{4})(?:\s+(\d{1,2}):(\d{2}))?\b"
 
 for match in re.finditer(pattern, text, re.IGNORECASE):
-    day, month_name, year = match.groups()
+    day, month_name, year, hour, minute = match.groups()
     month_num = months.get(month_name.lower())
     if month_num:
-        dt = datetime(int(year), month_num, int(day))
-        date_str = dt.strftime("%Y-%m-%d")
-        print(date_str)
+        if hour and minute:
+            dt = datetime(int(year), month_num, int(day), int(hour), int(minute))
+            date_str = dt.strftime("%Y-%m-%d %H:%M")
