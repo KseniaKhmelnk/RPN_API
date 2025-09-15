@@ -12,7 +12,7 @@ Make sure the output is clean, with column headers and properly separated rows, 
 }
 
 # Regex for "day month year [hh:mm]"
-pattern = r"\b(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+\d{1,2}\s+[a-zA-Zéû]+\s+\d{4}\s+\d{1,2}:\d{2}\b'
+pattern = r"\b(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+(\d{1,2})\s+([a-zA-Zéû]+)\s+(\d{4})\s+(\d{1,2}):(\d{2})\b"
 
 for match in re.finditer(pattern, text, re.IGNORECASE):
     dow, day, month_name, year, hour, minute = match.groups()
